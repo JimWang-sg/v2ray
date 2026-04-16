@@ -432,9 +432,9 @@ EOF
         fi
 
         sed -i \
-            -e 's#233boy-${net}-$is_addr#$(get_node_name "$is_addr" "$host")#g' \
-            -e 's#233boy-$net-$host#$(get_node_name "$is_addr" "$host")#g' \
-            -e 's#233boy-$net-$is_addr#$(get_node_name "$is_addr" "$host")#g' \
+            -e 's#233boy-\${net}-\$is_addr#$(get_node_name "$is_addr" "$host")#g' \
+            -e 's#233boy-\$net-\$host#$(get_node_name "$is_addr" "$host")#g' \
+            -e 's#233boy-\$net-\$is_addr#$(get_node_name "$is_addr" "$host")#g' \
             "$core_patch_file"
     fi
 
