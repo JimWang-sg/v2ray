@@ -157,7 +157,9 @@ create_vmess_URL_config() {
 
  [[ -z $net ]] && get_transport_args
  [[ -z $ip ]] && get_ip
- local node_name="vpn-${ip}"
+ local geo_location
+ geo_location="$(get_geo_location)"
+ local node_name="v2_${geo_location}-${ip}"
 
  if [[ $v2ray_transport == [45] ]]; then
  cat >/etc/v2ray/vmess_qr.json <<EOF
@@ -246,8 +248,22 @@ view_shadowsocks_config_info() {
 get_shadowsocks_config_qr_link() {
  if [[ $shadowsocks ]]; then
  get_ip
- _load qr.sh
- _ss_qr
+ local geo_location ss_name ss_link link
+ geo_location="$(get_geo_location)"
+ ss_name="ss_${geo_location}-${ip}"
+ ss_link="ss://$(echo -n "${ssciphers}:${sspass}@${ip}:${ssport}" | base64 -w 0)#${ss_name}"
+ link="https://233boy.github.io/tools/qr.html#${ss_link}"
+ echo
+ echo "---------- Shadowsocks 二维码 -------------"
+ echo
+ qrencode -s 1 -m 1 -t ansi "${ss_link}"
+ echo
+ echo "如果无法正常显示二维码，请使用下面的链接来生成二维码:"
+ echo -e ${cyan}$link${none}
+ echo
+ echo -e " 温馨提示...$red Shadowsocks Win 4.0.6 $none客户端可能无法识别该二维码"
+ echo
+ echo
  else
  shadowsocks_config
  fi
@@ -2547,6 +2563,22 @@ get_ip() {
  ip=$(wget -4 -qO- https://dash.cloudflare.com/cdn-cgi/trace 2>/dev/null | awk -F= '/^ip=/{print $2; exit}')
  [[ -z "$ip" ]] && ip=$(wget -6 -qO- https://dash.cloudflare.com/cdn-cgi/trace 2>/dev/null | awk -F= '/^ip=/{print $2; exit}')
  [[ -z $ip ]] && echo -e "\n$red 获取IP失败, 这垃圾小鸡扔了吧！$none\n" && exit
+}
+
+get_geo_location() {
+ local country location
+ country="$(wget -qO- "https://ipapi.co/${ip}/country_name/" 2>/dev/null | tr -d '\r')"
+
+ if [[ -n "$country" ]]; then
+ location="${country}"
+ else
+ location="UNKNOWN"
+ fi
+
+ # Keep node names client-friendly
+ location="$(echo "$location" | tr ' ' '_' | tr -cd '[:alnum:]_.-')"
+ [[ -z "$location" ]] && location="UNKNOWN"
+ echo "$location"
 }
 
 error() {
