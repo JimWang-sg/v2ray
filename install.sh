@@ -393,6 +393,51 @@ main() {
         unzip -qo $is_sh_ok -d $is_sh_dir
     fi
 
+    # patch upstream core.sh node naming to Chinese geo format.
+    core_patch_file="${is_sh_dir}/src/core.sh"
+    if [[ -f "$core_patch_file" ]] && [[ ! $local_install ]]; then
+        if [[ ! $(grep -F "get_node_name()" "$core_patch_file") ]]; then
+            cat >>"$core_patch_file" <<'EOF'
+
+get_node_name() {
+    local _addr="$1"
+    local _host="$2"
+    local _country _city _node_ip _org _isp _as _provider _vendor _json
+
+    [[ -z $_addr ]] && _addr="$ip"
+    _json="$(curl -s --max-time 6 "http://ip-api.com/json/${_addr}?lang=zh-CN")"
+    _country="$(echo "$_json" | jq -r '.country // "未知国家"')"
+    _city="$(echo "$_json" | jq -r '.city // "未知城市"')"
+    _node_ip="$(echo "$_json" | jq -r '.query // empty')"
+    _org="$(echo "$_json" | jq -r '.org // empty')"
+    _isp="$(echo "$_json" | jq -r '.isp // empty')"
+    _as="$(echo "$_json" | jq -r '.as // empty')"
+    [[ -z $_node_ip ]] && _node_ip="$_addr"
+    _provider="${_org} ${_isp} ${_as}"
+
+    case "$_provider" in
+    *Tencent* | *腾讯* | *QCloud*) _vendor="腾讯" ;;
+    *Alibaba* | *Aliyun* | *阿里* | *阿里云*) _vendor="阿里" ;;
+    *Huawei* | *华为*) _vendor="华为" ;;
+    *Amazon* | *AWS* | *亚马逊*) _vendor="亚马逊" ;;
+    *Google* | *GCP* | *谷歌*) _vendor="谷歌" ;;
+    *Microsoft* | *Azure* | *微软*) _vendor="微软" ;;
+    *Oracle* | *OCI*) _vendor="甲骨文" ;;
+    *) _vendor="" ;;
+    esac
+
+    echo "${_country}_${_city}_${_node_ip}_${_vendor}"
+}
+EOF
+        fi
+
+        sed -i \
+            -e 's#233boy-${net}-$is_addr#$(get_node_name "$is_addr" "$host")#g' \
+            -e 's#233boy-$net-$host#$(get_node_name "$is_addr" "$host")#g' \
+            -e 's#233boy-$net-$is_addr#$(get_node_name "$is_addr" "$host")#g' \
+            "$core_patch_file"
+    fi
+
     # create core bin dir
     mkdir -p $is_core_dir/bin
     # copy core file or unzip core zip file
