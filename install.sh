@@ -168,7 +168,7 @@ download() {
         is_ok=$is_core_ok
         ;;
     sh)
-        link=https://github.com/${is_sh_repo}/releases/latest/download/code.zip
+        link=https://github.com/${is_sh_repo}/archive/refs/heads/master.zip
         name="$is_core_name 脚本"
         tmpfile=$tmpsh
         is_ok=$is_sh_ok
@@ -389,7 +389,15 @@ main() {
     if [[ $local_install ]]; then
         cp -rf $PWD/* $is_sh_dir
     else
-        unzip -qo $is_sh_ok -d $is_sh_dir
+        sh_unzip_dir=$tmpdir/shzip
+        mkdir -p $sh_unzip_dir
+        unzip -qo $is_sh_ok -d $sh_unzip_dir
+        sh_src_dir=$(ls -d $sh_unzip_dir/* 2>/dev/null | head -n 1)
+        [[ ! -d $sh_src_dir ]] && {
+            msg err "解压 ${is_core_name} 脚本失败"
+            exit_and_del_tmpdir
+        }
+        cp -rf $sh_src_dir/* $is_sh_dir
     fi
 
     # create core bin dir
