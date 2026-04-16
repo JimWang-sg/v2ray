@@ -402,17 +402,14 @@ main() {
 get_node_name() {
     local _addr="$1"
     local _host="$2"
-    local _country _city _node_ip _org _isp _as _provider _vendor _json
+    local _city _org _isp _as _provider _vendor _json _tag _cores _mem_g
 
     [[ -z $_addr ]] && _addr="$ip"
     _json="$(curl -s --max-time 6 "http://ip-api.com/json/${_addr}?lang=zh-CN")"
-    _country="$(echo "$_json" | jq -r '.country // "未知国家"')"
     _city="$(echo "$_json" | jq -r '.city // "未知城市"')"
-    _node_ip="$(echo "$_json" | jq -r '.query // empty')"
     _org="$(echo "$_json" | jq -r '.org // empty')"
     _isp="$(echo "$_json" | jq -r '.isp // empty')"
     _as="$(echo "$_json" | jq -r '.as // empty')"
-    [[ -z $_node_ip ]] && _node_ip="$_addr"
     _provider="${_org} ${_isp} ${_as}"
 
     case "$_provider" in
@@ -426,7 +423,12 @@ get_node_name() {
     *) _vendor="" ;;
     esac
 
-    echo "${_country}_${_city}_${_node_ip}_${_vendor}"
+    _cores="$(nproc 2>/dev/null || echo 1)"
+    _mem_g="$(awk '/MemTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo 2>/dev/null || echo 0)"
+    _tag="${_cores}h${_mem_g}g"
+
+    # City_2h2g_CloudVendor (cloud vendor might be empty)
+    echo "${_city}_${_tag}_${_vendor}"
 }
 EOF
         fi
@@ -483,7 +485,7 @@ EOF
     if _wget -t 3 -q -c "${custom_base_url}/ss-info.sh" -O "${is_sh_dir}/src/ss-info.sh" &&
         _wget -t 3 -q -c "${custom_base_url}/qr.sh" -O "${is_sh_dir}/src/qr.sh"; then
         chmod +x "${is_sh_dir}/src/ss-info.sh" "${is_sh_dir}/src/qr.sh"
-        msg ok "已启用节点命名格式: 国家_城市_ip_云服务商"
+        msg ok "已启用节点命名格式: 城市_2h2g_云服务商"
     else
         msg warn "节点命名增强脚本下载失败，已保留原版脚本"
     fi

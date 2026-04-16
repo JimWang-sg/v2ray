@@ -40,19 +40,26 @@ _cloud_vendor_zh() {
 	esac
 }
 
+_get_server_tag() {
+	# Format: <cores>h<memoryGB>g
+	local cores mem_g
+	cores="$(nproc 2>/dev/null || echo 1)"
+	mem_g="$(awk '/MemTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo 2>/dev/null || echo 0)"
+	echo "${cores}h${mem_g}g"
+}
+
 _build_ss_node_name() {
-	local lookup_json country city node_ip org isp as_info provider_raw cloud_vendor
+	local lookup_json city org isp as_info provider_raw cloud_vendor server_tag
 	lookup_json="$(curl -s --max-time 6 "http://ip-api.com/json/${ip}?lang=zh-CN")"
-	country="$(echo "$lookup_json" | jq -r '.country // "未知国家"')"
 	city="$(echo "$lookup_json" | jq -r '.city // "未知城市"')"
-	node_ip="$(echo "$lookup_json" | jq -r '.query // empty')"
 	org="$(echo "$lookup_json" | jq -r '.org // empty')"
 	isp="$(echo "$lookup_json" | jq -r '.isp // empty')"
 	as_info="$(echo "$lookup_json" | jq -r '.as // empty')"
-	[[ -z $node_ip ]] && node_ip="$ip"
 	provider_raw="${org} ${isp} ${as_info}"
 	cloud_vendor="$(_cloud_vendor_zh "$provider_raw")"
-	echo "${country}_${city}_${node_ip}_${cloud_vendor}"
+	server_tag="$(_get_server_tag)"
+	# City_2h2g_CloudVendor (cloud_vendor might be empty)
+	echo "${city}_${server_tag}_${cloud_vendor}"
 }
 
 _ss_qr() {
