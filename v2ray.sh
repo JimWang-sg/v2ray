@@ -298,94 +298,6 @@ exit_and_del_tmpdir() {
     exit
 }
 
-apply_node_naming_patch() {
-    local mgr="/etc/v2ray/sh/v2ray.sh"
-    [[ ! -f "$mgr" ]] && return 0
-
-    python3 - <<'PY'
-import pathlib, re
-mgr = pathlib.Path("/etc/v2ray/sh/v2ray.sh")
-text = mgr.read_text(encoding="utf-8", errors="ignore")
-
-MARK = "node_naming_patch_v1"
-if MARK in text:
-    raise SystemExit(0)
-
-# 1) ensure get_geo_location() exists (Chinese country/city)
-if "get_geo_location()" not in text:
-    geo = r'''
-
-get_geo_location() {
- local resp country city
- resp="$(wget -qO- "http://ip-api.com/json/${ip}?lang=zh-CN" 2>/dev/null)"
- country="$(echo "$resp" | sed -n 's/.*"country":"\([^"]*\)".*/\1/p')"
- city="$(echo "$resp" | sed -n 's/.*"city":"\([^"]*\)".*/\1/p')"
- [[ -z "$country" ]] && country="未知国家"
- [[ -z "$city" ]] && city="未知城市"
- echo "${country}_${city}"
-}
-'''
-    m = re.search(r'\nget_ip\(\)\s*\{[\s\S]*?\n\}\n', text)
-    if m:
-        text = text[:m.end()] + geo + text[m.end():]
-    else:
-        text += geo
-
-# 2) patch create_vmess_URL_config() to use 国家_城市_ip_v2
-m = re.search(r'(create_vmess_URL_config\(\)\s*\{\n)([\s\S]*?)(\n\})', text)
-if m:
-    head, body, tail = m.group(1), m.group(2), m.group(3)
-    # ensure we have ip/net args and node_name
-    inject = r'''[[ -z $net ]] && get_transport_args
- [[ -z $ip ]] && get_ip
- local geo_location
- geo_location="$(get_geo_location)"
- local node_name="${geo_location}_${ip}_v2"
-'''
-    # remove previous node_name assignments if any (best-effort)
-    body = re.sub(r'^\s*local\s+node_name=.*$\n?', '', body, flags=re.M)
-    body = re.sub(r'^\s*local\s+geo_location.*$\n?', '', body, flags=re.M)
-    body = re.sub(r'^\s*geo_location=.*$\n?', '', body, flags=re.M)
-    body = re.sub(r'^\s*\[\[\s*-z\s*\$ip\s*\]\]\s*&&\s*get_ip\s*\n?', '', body, flags=re.M)
-    body = re.sub(r'^\s*\[\[\s*-z\s*\$net\s*\]\]\s*&&\s*get_transport_args\s*\n?', '', body, flags=re.M)
-    body = inject + body.lstrip()
-    # set ps to node_name for vmess json blocks
-    body = re.sub(r'("ps"\s*:\s*)"[^"]*"', r'\1"${node_name}"', body)
-    # set vless fragment after # to node_name
-    body = re.sub(r'#([^\\s"]+)', r'#${node_name}', body)
-    text = text[:m.start()] + head + body.rstrip() + tail + text[m.end():]
-
-# 3) patch get_shadowsocks_config_qr_link() to use 国家_城市_ip_ss
-m = re.search(r'(get_shadowsocks_config_qr_link\(\)\s*\{\n)([\s\S]*?)(\n\})', text)
-if m:
-    head, body, tail = m.group(1), m.group(2), m.group(3)
-    # If it already computes ss_link, we override construction in a minimal way.
-    # Ensure ip and geo are available.
-    if "ss_link=" in body:
-        body = re.sub(r'local ss_link=.*\n', '', body)
-        body = re.sub(r'local link=.*\n', '', body)
-    # ensure geo vars
-    if "geo_location" not in body:
-        body = re.sub(r'(get_ip\s*\n)', r'\1 local geo_location\n geo_location="$(get_geo_location)"\n', body, count=1)
-    if "ss_name" not in body:
-        body = re.sub(r'(geo_location="\$\([^)]+\)"\n)', r'\1 local ss_name\n ss_name="${geo_location}_${ip}_ss"\n', body, count=1)
-    # replace any hardcoded suffix after '#'
-    body = re.sub(r'#\S+', r'#${ss_name}', body)
-    # ensure ss_link uses ss_name (rebuild line if found common pattern)
-    body = re.sub(
-        r'ss_link="ss://\$\((?:echo -n )?\$\{ssciphers\}:\$\{sspass\}@\$\{ip\}:\$\{ssport\}.*?\)"#.*?"',
-        r'ss_link="ss://$(echo -n "${ssciphers}:${sspass}@${ip}:${ssport}" | base64 -w 0)#${ss_name}"',
-        body
-    )
-    if "ss_link=" not in body:
-        body = re.sub(r'(ss_name="[^"]+"\n)', r'\1 ss_link="ss://$(echo -n "${ssciphers}:${sspass}@${ip}:${ssport}" | base64 -w 0)#${ss_name}"\n link="https://233boy.github.io/tools/qr.html#${ss_link}"\n', body, count=1)
-    text = text[:m.start()] + head + body.rstrip() + tail + text[m.end():]
-
-text = text + f"\n# {MARK}\n"
-mgr.write_text(text, encoding="utf-8")
-PY
-}
-
 # main
 main() {
 
@@ -518,7 +430,6 @@ main() {
     load core.sh
     # create a tcp config
     add tcp
-    apply_node_naming_patch
     # remove tmp dir and exit.
     exit_and_del_tmpdir ok
 }
