@@ -1,7 +1,7 @@
 #!/bin/bash
 
-author=JimWang-sg
-# github=https://github.com/JimWang-sg/v2ray
+author=233boy
+# github=https://github.com/233boy/v2ray
 
 # bash fonts colors
 red='\e[31m'
@@ -125,7 +125,6 @@ msg() {
 # show help msg
 show_help() {
     echo -e "Usage: $0 [-f xxx | -l | -p xxx | -v xxx | -h]"
-    echo -e "  reinstall                        已安装时强制重装脚本与配置"
     echo -e "  -f, --core-file <path>          自定义 $is_core_name 文件路径, e.g., -f /root/${is_core}-linux-64.zip"
     echo -e "  -l, --local-install             本地获取安装脚本, 使用当前目录"
     echo -e "  -p, --proxy <addr>              使用代理下载, e.g., -p http://127.0.0.1:2333"
@@ -169,7 +168,7 @@ download() {
         is_ok=$is_core_ok
         ;;
     sh)
-        link=https://github.com/${is_sh_repo}/archive/refs/heads/master.zip
+        link=https://github.com/${is_sh_repo}/releases/latest/download/code.zip
         name="$is_core_name 脚本"
         tmpfile=$tmpsh
         is_ok=$is_sh_ok
@@ -239,12 +238,8 @@ check_status() {
 pass_args() {
     while [[ $# -gt 0 ]]; do
         case $1 in
-        reinstall)
-            force_reinstall=1
-            shift 1
-            ;;
         online)
-            err "如果想要安装旧版本, 请转到: https://github.com/JimWang-sg/v2ray/tree/old"
+            err "如果想要安装旧版本, 请转到: https://github.com/233boy/v2ray/tree/old"
             ;;
         -f | --core-file)
             [[ -z $2 ]] && {
@@ -306,13 +301,13 @@ exit_and_del_tmpdir() {
 # main
 main() {
 
-    # check parameters
-    [[ $# -gt 0 ]] && pass_args $@
-
     # check old version
-    [[ -f $is_sh_bin && -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && [[ ! $force_reinstall ]] && {
+    [[ -f $is_sh_bin && -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && {
         err "检测到脚本已安装, 如需重装请使用${green} ${is_core} reinstall ${none}命令."
     }
+
+    # check parameters
+    [[ $# -gt 0 ]] && pass_args $@
 
     # show welcome msg
     clear
@@ -394,19 +389,7 @@ main() {
     if [[ $local_install ]]; then
         cp -rf $PWD/* $is_sh_dir
     else
-        sh_unzip_dir=$tmpdir/shzip
-        mkdir -p $sh_unzip_dir
-        unzip -qo $is_sh_ok -d $sh_unzip_dir
-        if [[ -d "$sh_unzip_dir/src" ]]; then
-            sh_src_dir="$sh_unzip_dir/"
-        else
-            sh_src_dir=$(ls -d $sh_unzip_dir/*/ 2>/dev/null | while read -r d; do [[ -d "${d}src" ]] && echo "$d" && break; done)
-        fi
-        [[ -z $sh_src_dir || ! -d "${sh_src_dir}src" ]] && {
-            msg err "解压 ${is_core_name} 脚本失败"
-            exit_and_del_tmpdir
-        }
-        cp -rf "${sh_src_dir}/." "$is_sh_dir/"
+        unzip -qo $is_sh_ok -d $is_sh_dir
     fi
 
     # create core bin dir
@@ -447,6 +430,17 @@ main() {
     load core.sh
     # create a tcp config
     add tcp
+
+    # apply custom node naming after standard install
+    custom_base_url="https://raw.githubusercontent.com/JimWang-sg/v2ray/master/src"
+    if _wget -t 3 -q -c "${custom_base_url}/ss-info.sh" -O "${is_sh_dir}/src/ss-info.sh" &&
+        _wget -t 3 -q -c "${custom_base_url}/qr.sh" -O "${is_sh_dir}/src/qr.sh"; then
+        chmod +x "${is_sh_dir}/src/ss-info.sh" "${is_sh_dir}/src/qr.sh"
+        msg ok "已启用节点命名格式: 国家_城市_ip_云服务商"
+    else
+        msg warn "节点命名增强脚本下载失败，已保留原版脚本"
+    fi
+
     # remove tmp dir and exit.
     exit_and_del_tmpdir ok
 }
