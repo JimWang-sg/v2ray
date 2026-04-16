@@ -125,6 +125,7 @@ msg() {
 # show help msg
 show_help() {
     echo -e "Usage: $0 [-f xxx | -l | -p xxx | -v xxx | -h]"
+    echo -e "  reinstall                        已安装时强制重装脚本与配置"
     echo -e "  -f, --core-file <path>          自定义 $is_core_name 文件路径, e.g., -f /root/${is_core}-linux-64.zip"
     echo -e "  -l, --local-install             本地获取安装脚本, 使用当前目录"
     echo -e "  -p, --proxy <addr>              使用代理下载, e.g., -p http://127.0.0.1:2333"
@@ -238,6 +239,10 @@ check_status() {
 pass_args() {
     while [[ $# -gt 0 ]]; do
         case $1 in
+        reinstall)
+            force_reinstall=1
+            shift 1
+            ;;
         online)
             err "如果想要安装旧版本, 请转到: https://github.com/JimWang-sg/v2ray/tree/old"
             ;;
@@ -301,13 +306,13 @@ exit_and_del_tmpdir() {
 # main
 main() {
 
-    # check old version
-    [[ -f $is_sh_bin && -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && {
-        err "检测到脚本已安装, 如需重装请使用${green} ${is_core} reinstall ${none}命令."
-    }
-
     # check parameters
     [[ $# -gt 0 ]] && pass_args $@
+
+    # check old version
+    [[ -f $is_sh_bin && -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && [[ ! $force_reinstall ]] && {
+        err "检测到脚本已安装, 如需重装请使用${green} ${is_core} reinstall ${none}命令."
+    }
 
     # show welcome msg
     clear
