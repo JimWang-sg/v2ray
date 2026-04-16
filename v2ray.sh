@@ -159,7 +159,7 @@ create_vmess_URL_config() {
  [[ -z $ip ]] && get_ip
  local geo_location
  geo_location="$(get_geo_location)"
- local node_name="v2_${geo_location}-${ip}"
+ local node_name="${geo_location}_${ip}_v2"
 
  if [[ $v2ray_transport == [45] ]]; then
  cat >/etc/v2ray/vmess_qr.json <<EOF
@@ -250,7 +250,7 @@ get_shadowsocks_config_qr_link() {
  get_ip
  local geo_location ss_name ss_link link
  geo_location="$(get_geo_location)"
- ss_name="ss_${geo_location}-${ip}"
+ ss_name="${geo_location}_${ip}_ss"
  ss_link="ss://$(echo -n "${ssciphers}:${sspass}@${ip}:${ssport}" | base64 -w 0)#${ss_name}"
  link="https://233boy.github.io/tools/qr.html#${ss_link}"
  echo
@@ -2566,18 +2566,14 @@ get_ip() {
 }
 
 get_geo_location() {
- local country location
- country="$(wget -qO- "https://ipapi.co/${ip}/country_name/" 2>/dev/null | tr -d '\r')"
+ local resp country city location
+ resp="$(wget -qO- "http://ip-api.com/json/${ip}?lang=zh-CN" 2>/dev/null)"
+ country="$(echo "$resp" | sed -n 's/.*"country":"\([^"]*\)".*/\1/p')"
+ city="$(echo "$resp" | sed -n 's/.*"city":"\([^"]*\)".*/\1/p')"
 
- if [[ -n "$country" ]]; then
- location="${country}"
- else
- location="UNKNOWN"
- fi
-
- # Keep node names client-friendly
- location="$(echo "$location" | tr ' ' '_' | tr -cd '[:alnum:]_.-')"
- [[ -z "$location" ]] && location="UNKNOWN"
+ [[ -z "$country" ]] && country="未知国家"
+ [[ -z "$city" ]] && city="未知城市"
+ location="${country}_${city}"
  echo "$location"
 }
 
