@@ -302,7 +302,8 @@ exit_and_del_tmpdir() {
 main() {
 
     # check old version
-    [[ -f $is_sh_bin && -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir ]] && {
+    # if previous install is incomplete (missing src scripts), allow reinstall to repair it.
+    [[ -f $is_sh_bin && -d $is_core_dir/bin && -d $is_sh_dir && -d $is_conf_dir && -f "${is_sh_dir}/src/core.sh" && -f "${is_sh_dir}/src/systemd.sh" ]] && {
         err "检测到脚本已安装, 如需重装请使用${green} ${is_core} reinstall ${none}命令."
     }
 
