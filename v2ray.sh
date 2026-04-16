@@ -397,8 +397,12 @@ main() {
         sh_unzip_dir=$tmpdir/shzip
         mkdir -p $sh_unzip_dir
         unzip -qo $is_sh_ok -d $sh_unzip_dir
-        sh_src_dir=$(ls -d $sh_unzip_dir/*/ 2>/dev/null | while read -r d; do [[ -d "${d}src" ]] && echo "$d" && break; done)
-        [[ ! -d $sh_src_dir ]] && {
+        if [[ -d "$sh_unzip_dir/src" ]]; then
+            sh_src_dir="$sh_unzip_dir/"
+        else
+            sh_src_dir=$(ls -d $sh_unzip_dir/*/ 2>/dev/null | while read -r d; do [[ -d "${d}src" ]] && echo "$d" && break; done)
+        fi
+        [[ -z $sh_src_dir || ! -d "${sh_src_dir}src" ]] && {
             msg err "解压 ${is_core_name} 脚本失败"
             exit_and_del_tmpdir
         }
